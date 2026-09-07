@@ -124,6 +124,7 @@ function getCoordinates(location?: string): [number, number] | null {
 // ---------------------------------------------------------------------------
 interface MapMarker {
   uid: string;
+  sourceId: string;
   buildingId: string;
   movementId: string;
   name: string;
@@ -305,6 +306,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
 
       result.push({
         uid: `${building.id}-${i}`,
+        sourceId: typeof building.raw?.ID === "string" ? building.raw.ID : building.id,
         buildingId: building.id,
         movementId: building.movementId ?? "",
         name: building.name,
@@ -343,12 +345,17 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
   // Filtered markers: era AND movement AND query
   const visibleMarkers = useMemo(() => {
     const q = filters.query.trim().toLowerCase();
-    return markers.filter((m) => {
+    const matching = markers.filter((m) => {
       if (filters.eraId && m.macroId !== filters.eraId) return false;
       if (filters.movementId && m.movementId !== filters.movementId) return false;
       if (q && !m.name.toLowerCase().includes(q)) return false;
       return true;
     });
+    const unique = new Map<string, MapMarker>();
+    matching.forEach((marker) => {
+      if (!unique.has(marker.sourceId)) unique.set(marker.sourceId, marker);
+    });
+    return [...unique.values()];
   }, [markers, filters.eraId, filters.movementId, filters.query]);
 
   // GeoJSON FeatureCollection for clustering
