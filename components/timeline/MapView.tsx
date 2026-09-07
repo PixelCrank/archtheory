@@ -117,6 +117,14 @@ const BUILDING_COORDINATES: Record<string, [number, number]> = {
   "BLD-113": [51.5136, -0.0827], // Lloyd's Building
   "BLD-156": [51.4556, 0.1286], // Red House, Bexleyheath
   "BLD-168": [51.5045, -0.0865], // The Shard
+  "BLD-022": [48.8538, 2.3331], // Le salon de verre
+  "BLD-066": [48.8510, 2.3150], // Maison de Verre
+  "BLD-069": [48.9231, 2.2586], // Villa Dall'Ava
+  "BLD-084": [48.8566, 2.3126], // Les Invalides
+  "BLD-096": [48.8606, 2.3522], // Centre Pompidou
+  "BLD-110": [48.8610, 2.3358], // Louvre Pyramid
+  "BLD-141": [48.8462, 2.3450], // Panthéon
+  "BLD-153": [48.8554, 2.3450], // Sainte-Chapelle
 };
 
 function getCoordinates(location?: string): [number, number] | null {

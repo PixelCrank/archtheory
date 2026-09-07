@@ -112,8 +112,10 @@ const buildTimelineBuilding = (
   const coordinateParts = combinedCoordinates
     ? String(combinedCoordinates).split(/[\t,;/]+/).map((value) => value.trim())
     : [];
-  const lat = latRaw ? parseFloat(latRaw) : coordinateParts[0] ? parseFloat(coordinateParts[0]) : undefined;
-  const lng = lngRaw ? parseFloat(lngRaw) : coordinateParts[1] ? parseFloat(coordinateParts[1]) : undefined;
+  const parsedLat = latRaw ? parseFloat(latRaw) : coordinateParts[0] ? parseFloat(coordinateParts[0]) : undefined;
+  const parsedLng = lngRaw ? parseFloat(lngRaw) : coordinateParts[1] ? parseFloat(coordinateParts[1]) : undefined;
+  const lat = parsedLat !== undefined && parsedLng !== undefined ? parsedLat : undefined;
+  const lng = parsedLat !== undefined && parsedLng !== undefined ? parsedLng : undefined;
 
   return {
     id: IdGenerator.building(name, movementId, index),
