@@ -221,10 +221,12 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
   const refreshClusterMarkers = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map || !map.isStyleLoaded()) return;
+    if (map.getZoom() >= CLUSTER_MAX_ZOOM) {
+      setClusterMarkers([]);
+      return;
+    }
 
-    const features = map.querySourceFeatures("buildings-src").filter(
-      (feature) => feature.properties?.cluster_id !== undefined
-    );
+    const features = map.queryRenderedFeatures(undefined, { layers: ["clusters"] });
     const nextMarkers = features.map((feature) => {
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates;
       const properties = feature.properties ?? {};
@@ -236,7 +238,18 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
         eraCounts: ERA_COLORS.map((_, index) => Number(properties[`era_${index}`] ?? 0)),
       };
     });
-    setClusterMarkers(nextMarkers);
+    const uniqueMarkers = new Map(nextMarkers.map((marker) => [marker.id, marker]));
+    setClusterMarkers([...uniqueMarkers.values()]);
+  }, []);
+
+  const handleMapZoom = useCallback((event: { viewState: { zoom: number } }) => {
+    const nextZoom = event.viewState.zoom;
+    setMapZoom(nextZoom);
+    if (nextZoom >= CLUSTER_MAX_ZOOM) {
+      setClusterMarkers([]);
+      setClusterTooltip(null);
+      setClusterList(null);
+    }
   }, []);
 
   // Sorted macros (chronological)
@@ -533,7 +546,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
           onLoad={refreshClusterMarkers}
           onData={refreshClusterMarkers}
           onMoveEnd={refreshClusterMarkers}
-          onZoom={(event) => setMapZoom(event.viewState.zoom)}
+          onZoom={handleMapZoom}
           renderWorldCopies={false}
           minZoom={1}
         >
