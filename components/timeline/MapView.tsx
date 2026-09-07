@@ -128,6 +128,7 @@ interface MapMarker {
   buildingId: string;
   movementId: string;
   name: string;
+  imageUrl?: string;
   lat: number;
   lng: number;
   color: string;
@@ -189,9 +190,11 @@ const unclusteredLayer: LayerProps = {
     "circle-radius": 7,
     "circle-stroke-width": 2.5,
     "circle-stroke-color": "#fff",
-    "circle-opacity": 0.9,
+    "circle-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0.9, 14, 0],
   },
 };
+
+const CLUSTER_MAX_ZOOM = 14;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -213,6 +216,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
   const [clusterTooltip, setClusterTooltip] = useState<{ lng: number; lat: number; names: string[] } | null>(null);
   const [clusterList, setClusterList] = useState<{ lng: number; lat: number; items: ClusterEntry[] } | null>(null);
   const [clusterMarkers, setClusterMarkers] = useState<ClusterMarker[]>([]);
+  const [mapZoom, setMapZoom] = useState(2);
 
   const refreshClusterMarkers = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -310,6 +314,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
         buildingId: building.id,
         movementId: building.movementId ?? "",
         name: building.name,
+        imageUrl: building.imageUrl,
         lat: coords[0],
         lng: coords[1],
         color: ERA_COLORS[idx >= 0 ? idx % ERA_COLORS.length : 0],
@@ -512,7 +517,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
         />
       )}
 
-      <div className="map-canvas">
+      <div className={`map-canvas${mapZoom >= CLUSTER_MAX_ZOOM ? " map-is-detail-zoom" : ""}`}>
         <MapGL
           ref={mapRef}
           mapboxAccessToken={token}
@@ -528,6 +533,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
           onLoad={refreshClusterMarkers}
           onData={refreshClusterMarkers}
           onMoveEnd={refreshClusterMarkers}
+          onZoom={(event) => setMapZoom(event.viewState.zoom)}
           renderWorldCopies={false}
           minZoom={1}
         >
@@ -549,6 +555,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
                     width: size,
                     height: size,
                     background: clusterPieStyle(cluster.eraCounts),
+                    display: mapZoom >= CLUSTER_MAX_ZOOM ? "none" : "grid",
                   }}
                 >
                   <span>{cluster.count}</span>
@@ -556,6 +563,33 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
               </Marker>
             );
           })}
+
+          {visibleMarkers.map((marker) => (
+            <Marker
+              key={`building-marker-${marker.uid}`}
+              longitude={marker.lng}
+              latitude={marker.lat}
+              anchor="center"
+            >
+              <button
+                type="button"
+                className="map-building-marker"
+                style={{
+                  "--marker-color": marker.color,
+                  display: mapZoom >= CLUSTER_MAX_ZOOM ? "grid" : "none",
+                } as React.CSSProperties}
+                onClick={() => setFilters({ selectedId: marker.buildingId })}
+                title={marker.name}
+                aria-label={`Open ${marker.name}`}
+              >
+                {marker.imageUrl ? (
+                  <img src={marker.imageUrl} alt="" loading="lazy" />
+                ) : (
+                  <span>{marker.name.charAt(0) || "?"}</span>
+                )}
+              </button>
+            </Marker>
+          ))}
 
           {/* Hover tooltip */}
           {clusterTooltip && (
@@ -604,7 +638,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
             type="geojson"
             data={geojson}
             cluster={true}
-            clusterMaxZoom={14}
+            clusterMaxZoom={CLUSTER_MAX_ZOOM}
             clusterRadius={50}
             clusterProperties={clusterEraProperties}
           >

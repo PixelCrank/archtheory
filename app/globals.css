@@ -1107,6 +1107,45 @@ button { font-family: inherit; }
   font-variant-numeric: tabular-nums;
 }
 
+.map-building-marker {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 2px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--marker-color, var(--apple-blue));
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28), 0 0 0 2px var(--marker-color, var(--apple-blue));
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.map-building-marker:hover,
+.map-building-marker:focus-visible {
+  transform: scale(1.16);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 3px var(--marker-color, var(--apple-blue));
+}
+.map-building-marker:focus-visible {
+  outline: 2px solid var(--apple-text-1);
+  outline-offset: 3px;
+}
+.map-building-marker img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.map-building-marker span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.map-canvas.map-is-detail-zoom .map-cluster-pie,
+.map-canvas:not(.map-is-detail-zoom) .map-building-marker {
+  display: none !important;
+}
+
 /* Cluster popups (hover tooltip + click list) */
 .map-cluster-popup .mapboxgl-popup-content {
   padding: 8px 10px;
