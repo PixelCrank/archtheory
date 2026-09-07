@@ -106,8 +106,14 @@ const buildTimelineBuilding = (
 
   const latRaw = pickFirst(row, ['Latitude']);
   const lngRaw = pickFirst(row, ['Longitude']);
-  const lat = latRaw ? parseFloat(latRaw) : undefined;
-  const lng = lngRaw ? parseFloat(lngRaw) : undefined;
+  const combinedCoordinates = Object.entries(row).find(([key]) =>
+    /^latitude\s*[\t,/]\s*longitude$/i.test(key.trim())
+  )?.[1];
+  const coordinateParts = combinedCoordinates
+    ? String(combinedCoordinates).split(/[\t,;/]+/).map((value) => value.trim())
+    : [];
+  const lat = latRaw ? parseFloat(latRaw) : coordinateParts[0] ? parseFloat(coordinateParts[0]) : undefined;
+  const lng = lngRaw ? parseFloat(lngRaw) : coordinateParts[1] ? parseFloat(coordinateParts[1]) : undefined;
 
   return {
     id: IdGenerator.building(name, movementId, index),

@@ -34,6 +34,7 @@ const LOCATION_COORDINATES: Record<string, [number, number]> = {
   "netherlands": [52.1326, 5.2913], "amsterdam": [52.3676, 4.9041], "rotterdam": [51.9244, 4.4777],
   "belgium": [50.5039, 4.4699], "brussels": [50.8503, 4.3517], "bruges": [51.2093, 3.2247],
   "switzerland": [46.8182, 8.2275], "zurich": [47.3769, 8.5417], "geneva": [46.2044, 6.1432],
+  "vals": [46.6224, 9.1811], "montreux": [46.4312, 6.9107],
   "austria": [47.5162, 14.5501], "vienna": [48.2082, 16.3738], "greece": [39.0742, 21.8243],
   "athens": [37.9838, 23.7275], "russia": [61.524, 105.3188], "moscow": [55.7558, 37.6173],
   "st petersburg": [59.9343, 30.3351], "saint petersburg": [59.9343, 30.3351],
@@ -314,8 +315,8 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
           ? [building.lat, building.lng]
           : getCoordinates(building.city) ||
             getCoordinates(building.city?.split(",")[0]?.trim()) ||
-            getCoordinates(building.country) ||
-            getCoordinates(building.location);
+            getCoordinates(building.location) ||
+            getCoordinates(building.country);
       if (!coords) return;
 
       const idx = buildingMacroIndex.get(building.id) ?? -1;
