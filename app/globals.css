@@ -925,6 +925,45 @@ button { font-family: inherit; }
   transform: scale(1.12);
   box-shadow: 0 0 0 4px rgba(0,113,227,0.14), var(--shadow-2);
 }
+.timeline-figure-lane {
+  position: relative;
+  height: 24px;
+  border-top: 1px dashed var(--apple-sep);
+}
+.timeline-figure-node {
+  position: absolute;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--figure-color, var(--apple-blue));
+  box-shadow: 0 0 0 1px var(--figure-color, var(--apple-blue)), var(--shadow-1);
+  overflow: hidden;
+  cursor: pointer;
+}
+.timeline-figure-node:hover,
+.timeline-figure-node:focus-visible {
+  transform: translateX(-50%) scale(1.3);
+  z-index: 3;
+}
+.timeline-figure-node:focus-visible {
+  outline: 2px solid var(--apple-blue);
+  outline-offset: 2px;
+}
+.timeline-figure-node img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.timeline-figure-node span {
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+}
 .timeline-node-visual {
   display: grid;
   place-items: center;

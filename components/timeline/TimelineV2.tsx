@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { useSharedFilters } from "@/hooks/useSharedFilters";
-import type { ChildMovement, MacroMovement, TimelineBuilding } from "@/lib/timelineData";
+import type { ChildMovement, MacroMovement, TimelineBuilding, TimelineFigure } from "@/lib/timelineData";
 import { ERA_COLORS } from "./palettes";
 import { ViewShell } from "./ViewShell";
 import { DetailPanel } from "./DetailPanel";
@@ -39,6 +39,10 @@ function movementFocusRange(movement: ChildMovement): [number, number] {
   const [start, end] = movementRange(movement);
   const buildingYears = (movement.works ?? []).map((building) => buildingYear(building, movement));
   return [Math.min(start, ...buildingYears), Math.max(end, ...buildingYears)];
+}
+
+function figureYear(figure: TimelineFigure, movement: ChildMovement): number {
+  return parseYear(figure.lifeDates) ?? movement.start ?? 0;
 }
 
 // ── Clustering ────────────────────────────────────────────────────────────────
@@ -112,6 +116,29 @@ type HoverInfo = {
   anchorX: number;
   anchorY: number;
 } | null;
+
+function FigureNode({
+  figure, movement, color, nodeLeft, onSelect,
+}: {
+  figure: TimelineFigure;
+  movement: ChildMovement;
+  color: string;
+  nodeLeft: string;
+  onSelect: (figure: TimelineFigure) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="timeline-figure-node"
+      style={{ left: nodeLeft, "--figure-color": color } as React.CSSProperties}
+      onClick={() => onSelect(figure)}
+      aria-label={`Open architect ${figure.name}, ${figure.lifeDates ?? "dates unknown"}`}
+      title={`${figure.name}${figure.lifeDates ? ` · ${figure.lifeDates}` : ""}`}
+    >
+      {figure.imageUrl ? <img src={figure.imageUrl} alt="" loading="lazy" /> : <span>{(figure.name || "?")[0]}</span>}
+    </button>
+  );
+}
 
 // ── ClusterNode ───────────────────────────────────────────────────────────────
 function ClusterNode({
@@ -241,7 +268,7 @@ function ClusterNode({
 // ── EraBand ───────────────────────────────────────────────────────────────────
 function EraBand({
   childMovements, color, expandedId, onToggle, onFocusMovement, focusedMovementId,
-  minYear, maxYear, totalPx, onHover, stacked, layerH,
+  minYear, maxYear, totalPx, onHover, onSelectFigure, stacked, layerH,
   dims, bandH,
 }: {
   childMovements: Array<{ movement: ChildMovement; buildings: TimelineBuilding[] }>;
@@ -254,6 +281,7 @@ function EraBand({
   maxYear: number;
   totalPx: number;
   onHover: (info: HoverInfo) => void;
+  onSelectFigure: (figure: TimelineFigure, movement: ChildMovement) => void;
   stacked: boolean;
   layerH: number;
   dims: ZoomDims;
@@ -283,7 +311,7 @@ function EraBand({
       year: buildingYear(building, movement),
     }));
     const clusters = clusterEntries(movementEntries, minYear, maxYear, totalPx, nodeSize);
-    const trackH = height - eraKeyH;
+    const trackH = height - eraKeyH - 24;
 
     return (
       <div className="timeline-submovement-layer" style={{ height }} key={movement.id}>
@@ -321,6 +349,18 @@ function EraBand({
             />
           ))}
         </div>
+        <div className="timeline-figure-lane" aria-label={`${movement.name} architects`}>
+          { (movement.figures ?? []).filter((figure) => figure.name).map((figure) => (
+            <FigureNode
+              key={figure.id}
+              figure={figure}
+              movement={movement}
+              color={color}
+              nodeLeft={pct(figureYear(figure, movement))}
+              onSelect={(selected) => onSelectFigure(selected, movement)}
+            />
+          ))}
+        </div>
       </div>
     );
   };
@@ -334,7 +374,7 @@ function EraBand({
   }
 
   const clusters = clusterEntries(entries, minYear, maxYear, totalPx, nodeSize);
-  const trackH = bandH - eraKeyH;
+  const trackH = bandH - eraKeyH - 24;
 
   return (
     <section className="timeline-era-band" style={{ height: bandH }}>
@@ -375,6 +415,18 @@ function EraBand({
             onHover={onHover}
           />
         ))}
+      </div>
+      <div className="timeline-figure-lane" aria-label="Architects">
+        {childMovements.flatMap(({ movement }) => (movement.figures ?? []).filter((figure) => figure.name).map((figure) => (
+          <FigureNode
+            key={figure.id}
+            figure={figure}
+            movement={movement}
+            color={color}
+            nodeLeft={pct(figureYear(figure, movement))}
+            onSelect={(selected) => onSelectFigure(selected, movement)}
+          />
+        )))}
       </div>
     </section>
   );
@@ -552,7 +604,7 @@ export function TimelineV2() {
   // Fixed per-band height — single row, no stacking
   const AXIS_ROW_H = 46;
   const { nodeSize, eraKeyH, bandPad, showLabel } = dims;
-  const naturalBandH = eraKeyH + bandPad + nodeSize + (showLabel ? 12 : 0) + bandPad;
+  const naturalBandH = eraKeyH + bandPad + nodeSize + (showLabel ? 12 : 0) + bandPad + 24;
   const numBands = visibleMacros.length;
   const stackSubmovements = Boolean(filters.eraId && !filters.movementId && visibleMacros.length === 1);
   const stackedMovementCount = stackSubmovements ? visibleMacros[0]?.childMovements.length ?? 1 : 1;
@@ -567,7 +619,7 @@ export function TimelineV2() {
     return Math.max(eraKeyH + nodeSize + 6, compressed);
   }, [availH, numBands, naturalBandH, eraKeyH, nodeSize, stackSubmovements, stackedMovementCount]);
 
-  // Resolve expanded building
+  // Resolve expanded building or architect
   const expandedInfo = useMemo(() => {
     if (!filters.selectedId) return null;
     for (let i = 0; i < macros.length; i++) {
@@ -576,6 +628,8 @@ export function TimelineV2() {
         if (!movement) continue;
         const b = (movement.works ?? []).find((b) => b.id === filters.selectedId);
         if (b) return { building: b, movement, color: ERA_COLORS[i % ERA_COLORS.length] };
+        const figure = (movement.figures ?? []).find((item) => item.id === filters.selectedId);
+        if (figure) return { figure, movement, color: ERA_COLORS[i % ERA_COLORS.length] };
       }
     }
     return null;
@@ -757,6 +811,7 @@ export function TimelineV2() {
                         onFocusMovement={(movement) =>
                           focusTimeline(movement.id, ...movementFocusRange(movement))
                         }
+                        onSelectFigure={(figure, movement) => setFilters({ selectedId: figure.id })}
                         focusedMovementId={focusedMovementId}
                         stacked={stackSubmovements}
                         layerH={naturalBandH}
@@ -794,7 +849,7 @@ export function TimelineV2() {
       {/* Detail panel */}
       {expandedInfo && (
         <DetailPanel
-          item={expandedInfo.building}
+          item={expandedInfo.building ?? expandedInfo.figure}
           movement={expandedInfo.movement}
           color={expandedInfo.color}
           onClose={() => setFilters({ selectedId: "" })}
