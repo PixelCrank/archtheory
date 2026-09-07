@@ -110,6 +110,15 @@ const LOCATION_COORDINATES: Record<string, [number, number]> = {
   "uae": [23.4241, 53.8478],
 };
 
+const BUILDING_COORDINATES: Record<string, [number, number]> = {
+  "BLD-077": [51.4226, -0.0755], // Crystal Palace
+  "BLD-095": [51.5200, -0.0930], // Barbican Estate
+  "BLD-106": [51.5045, -0.1753], // Serpentine Pavilion 2013
+  "BLD-113": [51.5136, -0.0827], // Lloyd's Building
+  "BLD-156": [51.4556, 0.1286], // Red House, Bexleyheath
+  "BLD-168": [51.5045, -0.0865], // The Shard
+};
+
 function getCoordinates(location?: string): [number, number] | null {
   if (!location) return null;
   const normalized = location.toLowerCase().trim();
@@ -135,6 +144,7 @@ interface MapMarker {
   color: string;
   eraIndex: number;
   macroId: string;
+  hasExactCoordinates: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,10 +320,13 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
   const markers = useMemo<MapMarker[]>(() => {
     const result: MapMarker[] = [];
     buildings.forEach((building, i) => {
-      const coords: [number, number] | null =
-        (building.lat !== undefined && building.lng !== undefined)
-          ? [building.lat, building.lng]
-          : getCoordinates(building.city) ||
+      const sourceId = typeof building.raw?.ID === "string" ? building.raw.ID : building.id;
+      const exactCoordinates = BUILDING_COORDINATES[sourceId] ||
+        ((building.lat !== undefined && building.lng !== undefined)
+          ? [building.lat, building.lng] as [number, number]
+          : null);
+      const coords: [number, number] | null = exactCoordinates ||
+        getCoordinates(building.city) ||
             getCoordinates(building.city?.split(",")[0]?.trim()) ||
             getCoordinates(building.location) ||
             getCoordinates(building.country);
@@ -324,7 +337,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
 
       result.push({
         uid: `${building.id}-${i}`,
-        sourceId: typeof building.raw?.ID === "string" ? building.raw.ID : building.id,
+        sourceId,
         buildingId: building.id,
         movementId: building.movementId ?? "",
         name: building.name,
@@ -334,6 +347,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
         color: ERA_COLORS[idx >= 0 ? idx % ERA_COLORS.length : 0],
         eraIndex: idx,
         macroId,
+        hasExactCoordinates: Boolean(exactCoordinates),
       });
     });
 
@@ -342,7 +356,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
     const PRECISION = 4; // ~11 m at equator
     const SPIRAL_RADIUS_DEG = 0.0004; // ~44 m — tight enough to look co-located, wide enough to be clickable
     const groups = new Map<string, MapMarker[]>();
-    result.forEach((m) => {
+    result.filter((m) => m.hasExactCoordinates).forEach((m) => {
       const key = `${m.lat.toFixed(PRECISION)},${m.lng.toFixed(PRECISION)}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(m);
