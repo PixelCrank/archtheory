@@ -1110,10 +1110,11 @@ button { font-family: inherit; }
 .map-building-marker {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  padding: 2px;
-  border: 2px solid #fff;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 3px solid #fff;
+  box-sizing: border-box;
   border-radius: 50%;
   background: var(--marker-color, var(--apple-blue));
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28), 0 0 0 2px var(--marker-color, var(--apple-blue));
@@ -1132,6 +1133,7 @@ button { font-family: inherit; }
   outline-offset: 3px;
 }
 .map-building-marker img {
+  display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
