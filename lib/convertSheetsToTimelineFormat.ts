@@ -251,11 +251,27 @@ export function convertSheetsToTimelineFormat(
       );
 
     // Find figures linked to this movement
-    const figures: TimelineFigure[] = figureRows
+    const sourceFigures: TimelineFigure[] = figureRows
       .filter((figure) => rowMatchesMovement(figure, movementKey, movementId))
       .map((figure, figureIndex) =>
         buildTimelineFigure(figure, movementId, figureIndex)
-      );
+      )
+      .filter((figure) => Boolean(figure.name));
+    const knownFigureNames = new Set(sourceFigures.map((figure) => lower(figure.name)));
+    const inferredFigures = works
+      .flatMap((work) => splitList(work.architects))
+      .filter((name) => name && !knownFigureNames.has(lower(name)))
+      .filter((name, index, names) => names.findIndex((candidate) => lower(candidate) === lower(name)) === index)
+      .map((name, figureIndex): TimelineFigure => ({
+        id: IdGenerator.figure(name, movementId, sourceFigures.length + figureIndex),
+        name,
+        type: 'figure',
+        movementId,
+        description: '',
+        majorWorks: works.filter((work) => splitList(work.architects).some((architect) => lower(architect) === lower(name))).map((work) => work.name),
+        raw: { inferredFrom: 'Buildings.Architect(s)' },
+      }));
+    const figures = [...sourceFigures, ...inferredFigures];
 
     // Normalize region tags
     const regionText = pickFirst(movement, ['Geography / Regions', 'Region']);
