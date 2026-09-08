@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import MapGL, {
   Marker,
   NavigationControl,
@@ -163,6 +163,8 @@ interface MapViewProps {
 // ---------------------------------------------------------------------------
 export function MapView({ buildings, movements, macros }: MapViewProps) {
   const { filters, setFilters } = useSharedFilters();
+  const [zoom, setZoom] = useState(2);
+  const compactMarkers = zoom <= 2;
 
   // Sorted macros (chronological)
   const sortedMacros = useMemo(
@@ -359,6 +361,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
           attributionControl={false}
           renderWorldCopies={false}
           minZoom={1}
+          onZoom={(event) => setZoom(event.viewState.zoom)}
         >
           <NavigationControl position="bottom-left" showCompass={false} />
 
@@ -374,6 +377,7 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
                 className={`map-building-marker${marker.hasExactCoordinates ? "" : " map-building-marker--approximate"}`}
                 style={{
                   "--marker-color": marker.color,
+                  "--marker-size": compactMarkers ? "16px" : "32px",
                 } as React.CSSProperties}
                 onClick={() => setFilters({ selectedId: marker.buildingId })}
                 title={marker.name}

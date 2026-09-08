@@ -1149,8 +1149,8 @@ button { font-family: inherit; }
 .map-building-marker {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: var(--marker-size, 48px);
+  height: var(--marker-size, 48px);
   padding: 0;
   border: 3px solid #fff;
   box-sizing: border-box;
