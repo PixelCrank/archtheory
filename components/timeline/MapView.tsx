@@ -1,16 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import MapGL, {
   Marker,
-  Source,
-  Layer,
   NavigationControl,
-  Popup,
 } from "react-map-gl/mapbox";
-import type { MapRef, LayerProps } from "react-map-gl/mapbox";
-import type { MapMouseEvent } from "mapbox-gl";
-import type { FeatureCollection, Point } from "geojson";
 import type { TimelineBuilding, ChildMovement, MacroMovement } from "@/lib/timelineData";
 import { ERA_COLORS } from "@/components/timeline/palettes";
 import { DetailPanel } from "@/components/timeline/DetailPanel";
@@ -156,66 +150,6 @@ interface MapMarker {
 }
 
 // ---------------------------------------------------------------------------
-// Layer specs
-// ---------------------------------------------------------------------------
-const clusterLayer: LayerProps = {
-  id: "clusters",
-  type: "circle",
-  source: "buildings-src",
-  filter: ["has", "point_count"],
-  paint: {
-    "circle-color": "#ffffff",
-    "circle-radius": ["step", ["get", "point_count"], 16, 10, 22, 30, 28],
-    "circle-opacity": 0,
-    "circle-stroke-width": 0,
-  },
-};
-
-const clusterCountLayer: LayerProps = {
-  id: "cluster-count",
-  type: "symbol",
-  source: "buildings-src",
-  filter: ["has", "point_count"],
-  layout: {
-    "text-field": "{point_count_abbreviated}",
-    "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-    "text-size": 13,
-  },
-  paint: { "text-color": "#ffffff", "text-opacity": 0 },
-};
-
-const clusterEraProperties = Object.fromEntries(
-  ERA_COLORS.map((_, index) => [
-    `era_${index}`,
-    ["+", ["case", ["==", ["get", "eraIndex"], index], 1, 0]],
-  ])
-);
-
-interface ClusterMarker {
-  id: number;
-  lng: number;
-  lat: number;
-  count: number;
-  eraCounts: number[];
-}
-
-const unclusteredLayer: LayerProps = {
-  id: "unclustered",
-  type: "circle",
-  source: "buildings-src",
-  filter: ["!", ["has", "point_count"]],
-  paint: {
-    "circle-color": ["get", "color"],
-    "circle-radius": 7,
-    "circle-stroke-width": 2.5,
-    "circle-stroke-color": "#fff",
-    "circle-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0.9, 14, 0],
-  },
-};
-
-const CLUSTER_MAX_ZOOM = 14;
-
-// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 interface MapViewProps {
@@ -228,61 +162,13 @@ interface MapViewProps {
 // Component
 // ---------------------------------------------------------------------------
 export function MapView({ buildings, movements, macros }: MapViewProps) {
-  const mapRef = useRef<MapRef>(null);
   const { filters, setFilters } = useSharedFilters();
-
-  type ClusterEntry = { id: string; name: string };
-  const [clusterTooltip, setClusterTooltip] = useState<{ lng: number; lat: number; names: string[] } | null>(null);
-  const [clusterList, setClusterList] = useState<{ lng: number; lat: number; items: ClusterEntry[] } | null>(null);
-  const [clusterMarkers, setClusterMarkers] = useState<ClusterMarker[]>([]);
-  const [mapZoom, setMapZoom] = useState(2);
-
-  const refreshClusterMarkers = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (!map || !map.isStyleLoaded()) return;
-    if (map.getZoom() >= CLUSTER_MAX_ZOOM) {
-      setClusterMarkers([]);
-      return;
-    }
-
-    const features = map.queryRenderedFeatures(undefined, { layers: ["clusters"] });
-    const nextMarkers = features.map((feature) => {
-      const coordinates = (feature.geometry as GeoJSON.Point).coordinates;
-      const properties = feature.properties ?? {};
-      return {
-        id: properties.cluster_id as number,
-        lng: coordinates[0],
-        lat: coordinates[1],
-        count: Number(properties.point_count ?? 0),
-        eraCounts: ERA_COLORS.map((_, index) => Number(properties[`era_${index}`] ?? 0)),
-      };
-    });
-    const uniqueMarkers = new Map(nextMarkers.map((marker) => [marker.id, marker]));
-    setClusterMarkers([...uniqueMarkers.values()]);
-  }, []);
-
-  const handleMapZoom = useCallback((event: { viewState: { zoom: number } }) => {
-    const nextZoom = event.viewState.zoom;
-    setMapZoom(nextZoom);
-    if (nextZoom >= CLUSTER_MAX_ZOOM) {
-      setClusterMarkers([]);
-      setClusterTooltip(null);
-      setClusterList(null);
-    }
-  }, []);
 
   // Sorted macros (chronological)
   const sortedMacros = useMemo(
     () => [...macros].sort((a, b) => (a.start ?? 0) - (b.start ?? 0)),
     [macros]
   );
-
-  // macroId → index for color lookup
-  const macroIdToIndex = useMemo(() => {
-    const map = new Map<string, number>();
-    sortedMacros.forEach((m, i) => map.set(m.id, i));
-    return map;
-  }, [sortedMacros]);
 
   // Legacy name → index fallback
   const macroIndexByName = useMemo(() => {
@@ -399,23 +285,6 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
     return [...unique.values()];
   }, [markers, filters.eraId, filters.movementId, filters.query]);
 
-  // GeoJSON FeatureCollection for clustering
-  const geojson = useMemo<FeatureCollection<Point>>(() => ({
-    type: "FeatureCollection",
-    features: visibleMarkers.map((m) => ({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [m.lng, m.lat] },
-      properties: {
-        buildingId: m.buildingId,
-        uid: m.uid,
-        name: m.name,
-        color: m.color,
-        eraIndex: m.eraIndex,
-        macroId: m.macroId,
-      },
-    })),
-  }), [visibleMarkers]);
-
   // Movement map for DetailPanel lookup
   const movementMap = useMemo(() => {
     const map = new Map<string, ChildMovement>();
@@ -456,79 +325,6 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
     [selectedBuilding, macroColorByMovId]
   );
 
-  // Click handler
-  const handleMapClick = useCallback(
-    (event: MapMouseEvent) => {
-      setClusterList(null);
-      const features = event.features;
-      if (!features || features.length === 0) return;
-
-      const clusterFeature = features.find((f) => f.layer?.id === "clusters");
-      const unclusteredFeature = features.find((f) => f.layer?.id === "unclustered");
-
-      if (clusterFeature) {
-        const clusterId = clusterFeature.properties?.cluster_id as number;
-        const coords = (clusterFeature.geometry as GeoJSON.Point).coordinates as [number, number];
-        const source = mapRef.current?.getMap()?.getSource("buildings-src") as any;
-        source?.getClusterExpansionZoom(clusterId, (err: Error | null, expansionZoom: number) => {
-          if (err) return;
-          const currentZoom = mapRef.current?.getMap()?.getZoom() ?? 0;
-          // If zooming in would actually separate the pins, do it
-          if (expansionZoom > currentZoom + 0.5 && expansionZoom <= 20) {
-            mapRef.current?.flyTo({ center: coords, zoom: expansionZoom + 0.5 });
-          } else {
-            // Already at or past expansion zoom — show a clickable list instead
-            source?.getClusterLeaves(clusterId, 100, 0, (err2: Error | null, leaves: GeoJSON.Feature[]) => {
-              if (err2 || !leaves) return;
-              const items: ClusterEntry[] = leaves
-                .map((l) => ({ id: l.properties?.buildingId as string, name: l.properties?.name as string }))
-                .filter((item) => item.id);
-              if (items.length === 1) {
-                setFilters({ selectedId: items[0].id });
-              } else {
-                setClusterList({ lng: coords[0], lat: coords[1], items });
-              }
-            });
-          }
-        });
-      } else if (unclusteredFeature) {
-        const buildingId = unclusteredFeature.properties?.buildingId as string | undefined;
-        setFilters({ selectedId: buildingId ?? "" });
-      }
-    },
-    [setFilters]
-  );
-
-  // Hover handler — tooltip showing building names
-  const handleMouseMove = useCallback((event: MapMouseEvent) => {
-    const clusterFeature = event.features?.find((f) => f.layer?.id === "clusters");
-    if (!clusterFeature) { setClusterTooltip(null); return; }
-    const clusterId = clusterFeature.properties?.cluster_id as number;
-    const coords = (clusterFeature.geometry as GeoJSON.Point).coordinates as [number, number];
-    const source = mapRef.current?.getMap()?.getSource("buildings-src") as any;
-    source?.getClusterLeaves(clusterId, 20, 0, (err: Error | null, leaves: GeoJSON.Feature[]) => {
-      if (err || !leaves) return;
-      const names = leaves.map((l) => l.properties?.name as string).filter(Boolean);
-      setClusterTooltip({ lng: coords[0], lat: coords[1], names });
-    });
-  }, []);
-
-  const handleMouseLeave = useCallback(() => setClusterTooltip(null), []);
-
-  const clusterPieStyle = useCallback((eraCounts: number[]) => {
-    const total = eraCounts.reduce((sum, count) => sum + count, 0);
-    if (!total) return "#6e6e73";
-
-    let accumulated = 0;
-    const stops = eraCounts.flatMap((count, index) => {
-      if (!count) return [];
-      const start = (accumulated / total) * 100;
-      accumulated += count;
-      return `${ERA_COLORS[index]} ${start}% ${(accumulated / total) * 100}%`;
-    });
-    return `conic-gradient(${stops.join(", ")})`;
-  }, []);
-
   // No-token fallback
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   if (!token) {
@@ -553,52 +349,18 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
         />
       )}
 
-      <div className={`map-canvas${mapZoom >= CLUSTER_MAX_ZOOM ? " map-is-detail-zoom" : ""}`}>
+      <div className="map-canvas">
         <MapGL
-          ref={mapRef}
           mapboxAccessToken={token}
           initialViewState={{ longitude: 15, latitude: 25, zoom: 2 }}
           style={{ width: "100%", height: "100%" }}
           mapStyle="mapbox://styles/mapbox/light-v11"
           projection="mercator"
           attributionControl={false}
-          interactiveLayerIds={["clusters", "unclustered"]}
-          onClick={handleMapClick}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          onLoad={refreshClusterMarkers}
-          onData={refreshClusterMarkers}
-          onMoveEnd={refreshClusterMarkers}
-          onZoom={handleMapZoom}
           renderWorldCopies={false}
           minZoom={1}
         >
           <NavigationControl position="bottom-left" showCompass={false} />
-
-          {clusterMarkers.map((cluster) => {
-            const size = cluster.count >= 30 ? 56 : cluster.count >= 10 ? 44 : 32;
-            return (
-              <Marker
-                key={cluster.id}
-                longitude={cluster.lng}
-                latitude={cluster.lat}
-                anchor="center"
-              >
-                <div
-                  className="map-cluster-pie"
-                  aria-hidden="true"
-                  style={{
-                    width: size,
-                    height: size,
-                    background: clusterPieStyle(cluster.eraCounts),
-                    display: mapZoom >= CLUSTER_MAX_ZOOM ? "none" : "grid",
-                  }}
-                >
-                  <span>{cluster.count}</span>
-                </div>
-              </Marker>
-            );
-          })}
 
           {visibleMarkers.map((marker) => (
             <Marker
@@ -609,10 +371,9 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
             >
               <button
                 type="button"
-                className="map-building-marker"
+                className={`map-building-marker${marker.hasExactCoordinates ? "" : " map-building-marker--approximate"}`}
                 style={{
                   "--marker-color": marker.color,
-                  display: mapZoom >= CLUSTER_MAX_ZOOM ? "grid" : "none",
                 } as React.CSSProperties}
                 onClick={() => setFilters({ selectedId: marker.buildingId })}
                 title={marker.name}
@@ -627,61 +388,6 @@ export function MapView({ buildings, movements, macros }: MapViewProps) {
             </Marker>
           ))}
 
-          {/* Hover tooltip */}
-          {clusterTooltip && (
-            <Popup
-              longitude={clusterTooltip.lng}
-              latitude={clusterTooltip.lat}
-              closeButton={false}
-              anchor="bottom"
-              offset={12}
-              className="map-cluster-popup"
-            >
-              <ul className="map-cluster-tooltip-list">
-                {clusterTooltip.names.map((name, i) => (
-                  <li key={i}>{name}</li>
-                ))}
-              </ul>
-            </Popup>
-          )}
-
-          {/* Click list popup */}
-          {clusterList && (
-            <Popup
-              longitude={clusterList.lng}
-              latitude={clusterList.lat}
-              onClose={() => setClusterList(null)}
-              anchor="bottom"
-              offset={12}
-              className="map-cluster-popup"
-            >
-              <ul className="map-cluster-list">
-                {clusterList.items.map(({ id, name }) => (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      onClick={() => { setFilters({ selectedId: id }); setClusterList(null); }}
-                    >
-                      {name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </Popup>
-          )}
-          <Source
-            id="buildings-src"
-            type="geojson"
-            data={geojson}
-            cluster={true}
-            clusterMaxZoom={CLUSTER_MAX_ZOOM}
-            clusterRadius={50}
-            clusterProperties={clusterEraProperties}
-          >
-            <Layer {...clusterLayer} />
-            <Layer {...clusterCountLayer} />
-            <Layer {...unclusteredLayer} />
-          </Source>
         </MapGL>
 
         {/* Stats pill */}

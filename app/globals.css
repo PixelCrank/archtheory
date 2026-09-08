@@ -1167,6 +1167,14 @@ button { font-family: inherit; }
   transform: scale(1.16);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 3px var(--marker-color, var(--apple-blue));
 }
+.map-building-marker--approximate {
+  border-style: dashed;
+  opacity: 0.78;
+}
+.map-building-marker--approximate:hover,
+.map-building-marker--approximate:focus-visible {
+  opacity: 1;
+}
 .map-building-marker:focus-visible {
   outline: 2px solid var(--apple-text-1);
   outline-offset: 3px;
@@ -1182,11 +1190,6 @@ button { font-family: inherit; }
   font-size: 14px;
   font-weight: 700;
 }
-.map-canvas.map-is-detail-zoom .map-cluster-pie,
-.map-canvas:not(.map-is-detail-zoom) .map-building-marker {
-  display: none !important;
-}
-
 /* Cluster popups (hover tooltip + click list) */
 .map-cluster-popup .mapboxgl-popup-content {
   padding: 8px 10px;
