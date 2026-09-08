@@ -27,6 +27,11 @@ const pickFirst = (row: Record<string, unknown>, candidates: string[]): string =
       if (value) return value;
     }
   }
+  const normalizedCandidates = candidates.map((candidate) => candidate.trim().toLowerCase());
+  const matchingKey = Object.keys(row ?? {}).find(
+    (key) => normalizedCandidates.includes(key.trim().toLowerCase())
+  );
+  if (matchingKey) return cleanString(row[matchingKey]);
   return '';
 };
 
