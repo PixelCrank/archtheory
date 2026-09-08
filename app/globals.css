@@ -933,8 +933,8 @@ button { font-family: inherit; }
 .timeline-figure-node {
   position: absolute;
   top: 4px;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   transform: translateX(-50%);
   border: 2px solid #fff;
@@ -961,7 +961,7 @@ button { font-family: inherit; }
 }
 .timeline-figure-node span {
   color: #fff;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
 }
 .timeline-node-visual {
